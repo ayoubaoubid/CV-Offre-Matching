@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -6,8 +7,15 @@ import DashboardPage from "./pages/DashboardPage";
 import ResultsPage from "./pages/ResultsPage";
 import Navbar from "./components/Navbar";
 import CVUploader from "./components/CVUploader";
+import api from "./services/api";
 
 export default function App() {
+  useEffect(() => {
+    api.get("/ping/")
+      .then(response => console.log("Backend Connection Status:", response.data.message))
+      .catch(error => console.error("Backend Connection Error:", error));
+  }, []);
+
   return (
     <BrowserRouter>
       <Navbar />
