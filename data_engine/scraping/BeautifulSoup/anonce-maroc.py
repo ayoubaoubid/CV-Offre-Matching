@@ -311,6 +311,25 @@ def fetch_offer_details(url: str, session: requests.Session) -> dict[str, str]:
     }
 
 
+def remove_city_from_title(title: str, city: str) -> str:
+    """Supprime le nom de la ville du titre lorsqu'il est present."""
+    if not city:
+        return title
+
+    city_name = clean_text(city)
+    if not city_name:
+        return title
+
+    pattern = (
+        rf"(?i)(^\s*{re.escape(city_name)}\s*[-–:|,]?\s*"
+        rf"|\s*[-–:|,]?\s*{re.escape(city_name)}\s*$"
+        rf"|\b{re.escape(city_name)}\b)"
+    )
+    cleaned = re.sub(pattern, " ", title)
+    cleaned = re.sub(r"\s*[-–:|,]+\s*", " ", cleaned)
+    return clean_text(cleaned)
+
+
 def parse_listing(container: Tag, session: requests.Session) -> dict[str, str] | None:
     """Transforme un bloc HTML d'annonce en ligne prete pour le CSV."""
     link = container.find("a", href=lambda href: href and "/annonce/" in href)
@@ -322,6 +341,7 @@ def parse_listing(container: Tag, session: requests.Session) -> dict[str, str] |
 
     city_tag = holder.find("span", class_="location")
     city = clean_text(city_tag.get_text(" ", strip=True)) if city_tag else ""
+    title = remove_city_from_title(title, city)
 
     relative_url = link.get("href", "")
     full_url = urljoin(BASE_URL, relative_url)
