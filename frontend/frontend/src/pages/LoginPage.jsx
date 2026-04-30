@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
 
   const submit = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // rechargement du formulaire
     const res = await loginUser({ email, password });
     login(res.data);
     navigate("/dashboard");

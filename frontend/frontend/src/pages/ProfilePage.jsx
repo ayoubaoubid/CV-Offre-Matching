@@ -27,11 +27,7 @@ export default function ProfilePage() {
         <p>- AI Engineer Morocco</p>
       </div>
 
-      {/* RECOMMENDATIONS */}
-      <div className="card p-3 mt-3">
-        <h5>🎯 Personalized Recommendations</h5>
-        <p>Based on your CV + skills matching</p>
-      </div>
+      
 
     </div>
   );

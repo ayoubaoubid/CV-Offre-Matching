@@ -9,15 +9,15 @@ import Navbar from "./components/Navbar";
 import CVUploader from "./components/CVUploader";
 import api from "./services/api";
 
-export default function App() {
-  useEffect(() => {
-    api.get("/ping/")
+export default function App() { // composant principal de l’application qui gère les routes et la navigation
+  useEffect(() => { // test de communicationentrele Frontend et le Backend
+    api.get("/ping/") // envoie une requête GET à l’endpoint /ping/ du backend pour vérifier la connexion
       .then(response => console.log("Backend Connection Status:", response.data.message))
       .catch(error => console.error("Backend Connection Error:", error));
   }, []);
 
   return (
-    <BrowserRouter>
+    <BrowserRouter> {/** gère la navigation entre les différentes pages */}
       <Navbar />
       <Routes>
         <Route path="/" element={<LoginPage />} />
