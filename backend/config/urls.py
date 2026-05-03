@@ -15,13 +15,28 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from django.http import JsonResponse
+from rest_framework.routers import DefaultRouter
+
+# Création du routeur principal de DRF
+router = DefaultRouter()
+# Exemple: router.register(r'jobs', JobViewSet)
 
 def ping_view(request):
     return JsonResponse({"status": "success", "message": "Backend et Frontend sont connectés avec succès !"})
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    # Endpoint de base
     path('api/ping/', ping_view, name='ping'),
+    
+    # Routeur DRF pour les futures API CRUD
+    path('api/v1/', include(router.urls)),
+    
+    # URLs spécifiques aux applications
+    path('api/users/', include('apps.users.urls')),
+    path('api/jobs/', include('apps.jobs.urls')),
+    path('api/matching/', include('apps.matching.urls')),
 ]
