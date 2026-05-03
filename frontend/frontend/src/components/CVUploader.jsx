@@ -1,58 +1,44 @@
 import { useState } from "react";
 import API from "../services/api";
 
-export default function CVUploader() {
-  const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
+export default function ProfileForm() {
+  const [form, setForm] = useState({
+    secteur: "",
+    experience: "",
+    education: "",
+    localisation: "",
+    competences: ""
+  });
 
-  const uploadCV = async () => {
-    if (!file) return alert("Please select a file");
+  const handleChange = (e) => {
+    setForm({...form, [e.target.name]: e.target.value});
+  };
 
-    const formData = new FormData();
-    formData.append("cv", file);
-
-    setLoading(true);
-
+  const submit = async () => {
     try {
-      await API.post("/upload-cv/", formData);
-
-      // 🔥 simulation feature extraction (IMPORTANT DATA MINING STEP)
-      console.log("TF-IDF + NLP extraction triggered...");
-
-      alert("CV uploaded & analyzed!");
-    } catch (err) {
-      alert("Upload failed");
-    } finally {
-      setLoading(false);
+      const res = await API.post("/match-jobs/", form);
+      console.log(res.data);
+      alert("Matching done !");
+    } catch {
+      alert("Error");
     }
   };
 
   return (
-    <div className="container mt-4 text-center">
+    <div className="container mt-4">
 
-      <h2>📄 Upload CV</h2>
+      <h2>🎯 Job Matching</h2>
 
-      <input
-        type="file"
-        className="form-control w-50 mx-auto mt-3"
-        onChange={(e) => setFile(e.target.files[0])}
-      />
+      <input name="secteur" placeholder="Secteur" onChange={handleChange} className="form-control mt-2"/>
+      <input name="experience" placeholder="Expérience" onChange={handleChange} className="form-control mt-2"/>
+      <input name="education" placeholder="Niveau d'étude" onChange={handleChange} className="form-control mt-2"/>
+      <input name="localisation" placeholder="Localisation" onChange={handleChange} className="form-control mt-2"/>
 
-      <button
-        className="btn btn-success mt-3"
-        onClick={uploadCV}
-        disabled={loading}
-      >
-        {loading ? "Uploading..." : "Upload CV"}
+      <textarea name="competences" placeholder="Compétences (ex: Python, ML...)" onChange={handleChange} className="form-control mt-2"/>
+
+      <button className="btn btn-primary mt-3" onClick={submit}>
+        Match Jobs
       </button>
-
-      <hr />
-
-      {/* 🔥 FORMULE DATA MINING (EXPLICATION VISUELLE) */}
-      <div className="alert alert-info mt-3">
-        <b>Matching Formula:</b><br />
-        Score = 0.5 × Cosine Similarity + 0.25 × Jaccard + 0.15 × Experience Match + 0.10 × Geo Match
-      </div>
 
     </div>
   );
