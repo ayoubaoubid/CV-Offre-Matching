@@ -235,12 +235,12 @@ def extract_skills(description: str) -> str:
     """Recupere les competences requises ou le profil recherche."""
     skills = extract_labeled_segment(
         description,
-        ["competences techniques", "competences", "hard skills", "soft skills"],
+        ["competences techniques", "competences", "hard skills", "soft skills","maitriser","capable de","interpréter","savoir faire"],
     )
     if skills:
         return skills
 
-    profile = extract_labeled_segment(description, ["profil recherche"])
+    profile = extract_labeled_segment(description, ["profil recherche", "profil ideal","profil"])
     if profile:
         return profile
 
@@ -406,16 +406,45 @@ def deduplicate(rows: Iterable[dict[str, str]]) -> list[dict[str, str]]:
     return unique_rows
 
 
-def save_to_csv(rows: list[dict[str, str]], output_path: Path) -> None:
+def load_existing_urls(output_path: Path) -> set[str]:
+    """Charge les URLs deja presentes dans un CSV existant."""
+    if not output_path.exists() or output_path.stat().st_size == 0:
+        return set()
+
+    existing_urls: set[str] = set()
+    with output_path.open("r", newline="", encoding="utf-8-sig") as csv_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            url = clean_text(row.get("URL source de l'offre", ""))
+            if url:
+                existing_urls.add(url)
+    return existing_urls
+
+
+def save_to_csv(rows: list[dict[str, str]], output_path: Path, append: bool = False) -> None:
     """Enregistre les resultats dans un CSV compatible Excel."""
     if not rows:
         print("Aucune annonce n'a ete extraite.")
         return
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", newline="", encoding="utf-8-sig") as csv_file:
+    file_exists = output_path.exists() and output_path.stat().st_size > 0
+    if append and file_exists:
+        existing_urls = load_existing_urls(output_path)
+        rows = [
+            row
+            for row in rows
+            if clean_text(row.get("URL source de l'offre", "")) not in existing_urls
+        ]
+        if not rows:
+            print("Aucune nouvelle annonce a ajouter au CSV.")
+            return
+
+    mode = "a" if append else "w"
+    with output_path.open(mode, newline="", encoding="utf-8-sig") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=OUTPUT_FIELDS)
-        writer.writeheader()
+        if not append or not file_exists:
+            writer.writeheader()
         writer.writerows(rows)
 
 
@@ -458,6 +487,11 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_OUTPUT,
         help="Nom du fichier CSV de sortie.",
     )
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Ajoute les nouvelles lignes a la fin du CSV au lieu de remplacer le fichier.",
+    )
     return parser.parse_args()
 
 
@@ -472,7 +506,7 @@ def main() -> int:
 
     try:
         rows = scrape_offers(max_pages=args.pages, delay_seconds=args.delay)
-        save_to_csv(rows, output_path)
+        save_to_csv(rows, output_path, append=args.append)
     except requests.RequestException as exc:
         print(f"[ERREUR] Probleme reseau pendant le scraping: {exc}")
         return 1
