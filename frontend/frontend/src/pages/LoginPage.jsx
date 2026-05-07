@@ -9,10 +9,22 @@ export default function LoginPage() {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem("last_registered_email") || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const buildLoginErrorMessage = (requestError) => {
+    if (!requestError?.response) {
+      return "Erreur reseau: impossible de joindre le backend.";
+    }
+
+    if (requestError.response?.data?.message) {
+      return requestError.response.data.message;
+    }
+
+    return `Erreur ${requestError.response.status}: connexion impossible.`;
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -21,19 +33,17 @@ export default function LoginPage() {
 
     try {
       const response = await loginUser({
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
       });
+      localStorage.setItem("last_registered_email", response.data.user.email);
       login({
         user: response.data.user,
         tokens: response.data.tokens,
       });
       navigate("/upload");
     } catch (requestError) {
-      setError(
-        requestError.response?.data?.message ||
-          "Connexion impossible. Verifie l'email et le mot de passe."
-      );
+      setError(buildLoginErrorMessage(requestError));
     } finally {
       setLoading(false);
     }
@@ -72,6 +82,12 @@ export default function LoginPage() {
             Utilisez un email et un mot de passe existants dans la base pour entrer sans erreur.
           </p>
 
+          {localStorage.getItem("last_registered_email") ? (
+            <p className="small mb-3">
+              Dernier email enregistre: <strong>{localStorage.getItem("last_registered_email")}</strong>
+            </p>
+          ) : null}
+
           <label className="form-label">Adresse email</label>
           <input
             className="form-control form-control-lg mb-3"
@@ -93,6 +109,18 @@ export default function LoginPage() {
           />
 
           {error ? <p className="text-danger small mb-3">{error}</p> : null}
+
+          <button
+            type="button"
+            className="btn btn-outline-dark w-100 mb-3"
+            onClick={() => {
+              localStorage.removeItem("current_user");
+              localStorage.removeItem("auth_tokens");
+              setError("Ancienne session supprimee. Vous pouvez reessayer la connexion.");
+            }}
+          >
+            Reinitialiser l'ancienne session
+          </button>
 
           <button className="btn btn-primary btn-lg w-100" disabled={loading}>
             {loading ? "Connexion..." : "Se connecter"}

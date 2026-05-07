@@ -27,15 +27,26 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let isMounted = true;
 
-    const refreshUser = async () => {
-      if (!localStorage.getItem(AUTH_STORAGE_KEY)) {
+    const checkAuth = async () => {
+      const rawTokens = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!rawTokens) {
         if (isMounted) {
+          setUser(null);
           setAuthReady(true);
         }
         return;
       }
 
       try {
+        const tokens = JSON.parse(rawTokens);
+        if (!tokens?.access) {
+          if (isMounted) {
+            setUser(null);
+            setAuthReady(true);
+          }
+          return;
+        }
+
         const response = await fetchCurrentUser();
         if (!isMounted) {
           return;
@@ -56,7 +67,7 @@ export function AuthProvider({ children }) {
       }
     };
 
-    refreshUser();
+    checkAuth();
 
     return () => {
       isMounted = false;
