@@ -10,6 +10,11 @@ const API = axios.create({
   },
 });
 
+const PUBLIC_ROUTES = [
+  "/users/login/",
+  "/users/register/",
+];
+
 API.interceptors.request.use(
   (config) => {
     const rawTokens = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -44,9 +49,16 @@ API.interceptors.request.use(
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const requestUrl = error.config?.url || "";
+    const isPublicRoute = PUBLIC_ROUTES.some((route) => requestUrl.includes(route));
+
+    if (error.response?.status === 401 && !isPublicRoute) {
+      console.warn("Session expiree, deconnexion automatique.");
       localStorage.removeItem(AUTH_STORAGE_KEY);
       localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+        window.location.href = "/";
+      }
     } else if (!error.response) {
       console.error("Erreur reseau: le backend semble injoignable.");
     } else if (error.response.status >= 500) {
