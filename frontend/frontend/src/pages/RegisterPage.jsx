@@ -29,6 +29,46 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  const extractErrorMessage = (serverData) => {
+    if (!serverData) {
+      return "Creation du compte impossible.";
+    }
+
+    if (typeof serverData === "string") {
+      return serverData;
+    }
+
+    const priorityFields = [
+      "confirm_password",
+      "email",
+      "password",
+      "linkedin_url",
+      "phone",
+      "non_field_errors",
+      "detail",
+    ];
+
+    for (const field of priorityFields) {
+      const value = serverData[field];
+      if (Array.isArray(value) && value.length) {
+        return String(value[0]);
+      }
+      if (typeof value === "string" && value.trim()) {
+        return value;
+      }
+    }
+
+    const firstValue = Object.values(serverData)[0];
+    if (Array.isArray(firstValue) && firstValue.length) {
+      return String(firstValue[0]);
+    }
+    if (typeof firstValue === "string" && firstValue.trim()) {
+      return firstValue;
+    }
+
+    return "Creation du compte impossible.";
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -48,16 +88,7 @@ export default function RegisterPage() {
       setMessage("Compte cree avec succes. Vous pouvez maintenant ajouter votre CV.");
       setTimeout(() => navigate("/upload"), 800);
     } catch (requestError) {
-      const serverData = requestError.response?.data;
-      if (typeof serverData === "string") {
-        setError(serverData);
-      } else if (serverData?.confirm_password?.[0]) {
-        setError(serverData.confirm_password[0]);
-      } else if (serverData?.email?.[0]) {
-        setError(serverData.email[0]);
-      } else {
-        setError("Creation du compte impossible.");
-      }
+      setError(extractErrorMessage(requestError.response?.data));
     } finally {
       setLoading(false);
     }
@@ -129,7 +160,7 @@ export default function RegisterPage() {
           </div>
 
           <label className="form-label">Lien LinkedIn</label>
-          <input className="form-control mb-3" placeholder="Ex: https://linkedin.com/in/..." value={form.linkedin_url} onChange={(event) => updateField("linkedin_url", event.target.value)} />
+          <input className="form-control mb-3" placeholder="Ex: linkedin.com/in/mon-profil" value={form.linkedin_url} onChange={(event) => updateField("linkedin_url", event.target.value)} />
 
           <label className="form-label">Presentation personnelle</label>
           <textarea className="form-control mb-2" rows="4" placeholder="Parlez brievement de votre parcours, vos objectifs ou votre domaine..." value={form.bio} onChange={(event) => updateField("bio", event.target.value)} />

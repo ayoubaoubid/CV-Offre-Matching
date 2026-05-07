@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from .models import User
 
@@ -23,7 +25,7 @@ class RegisterSerializer(serializers.Serializer):
     experience_years = serializers.IntegerField(required=False, min_value=0, default=0)
     education_level = serializers.CharField(max_length=100, required=False, allow_blank=True)
     phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
-    linkedin_url = serializers.URLField(required=False, allow_blank=True)
+    linkedin_url = serializers.CharField(required=False, allow_blank=True)
 
     def validate_email(self, value):
         normalized_email = value.strip().lower()
@@ -38,6 +40,18 @@ class RegisterSerializer(serializers.Serializer):
             )
         return attrs
 
+    def validate_linkedin_url(self, value):
+        cleaned_value = value.strip()
+        if not cleaned_value:
+            return ""
+        if "://" not in cleaned_value:
+            cleaned_value = f"https://{cleaned_value}"
+        try:
+            URLValidator()(cleaned_value)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Lien LinkedIn invalide.")
+        return cleaned_value
+
 
 class ProfileUpdateSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=100, required=False)
@@ -48,6 +62,18 @@ class ProfileUpdateSerializer(serializers.Serializer):
     experience_years = serializers.IntegerField(required=False, min_value=0)
     education_level = serializers.CharField(max_length=100, required=False, allow_blank=True)
     phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
-    linkedin_url = serializers.URLField(required=False, allow_blank=True)
+    linkedin_url = serializers.CharField(required=False, allow_blank=True)
     skills = serializers.JSONField(required=False)
     cv_text = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_linkedin_url(self, value):
+        cleaned_value = value.strip()
+        if not cleaned_value:
+            return ""
+        if "://" not in cleaned_value:
+            cleaned_value = f"https://{cleaned_value}"
+        try:
+            URLValidator()(cleaned_value)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Lien LinkedIn invalide.")
+        return cleaned_value
