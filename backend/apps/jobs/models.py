@@ -41,17 +41,13 @@ class JobOffer(models.Model):
     calculée par le moteur NLP pour le scoring de similarité.
     """
  
-    class ContractType(models.TextChoices):
-        CDI       = 'CDI',       'CDI'
-        CDD       = 'CDD',       'CDD'
-        STAGE     = 'Stage',     'Stage'
-        FREELANCE = 'Freelance', 'Freelance'
  
     class Status(models.TextChoices):
         OPEN   = 'open',   'Ouverte'
         CLOSED = 'closed', 'Fermée'
         DRAFT  = 'draft',  'Brouillon'
  
+    id_jobOffer          = models.AutoField(primary_key=True)
     admin                = models.ForeignKey(
                                User,
                                on_delete=models.CASCADE,
@@ -69,14 +65,14 @@ class JobOffer(models.Model):
                            )
     title                = models.CharField(max_length=255)
     description          = models.TextField()
-    company              = models.CharField(max_length=255)
-    sector               = models.CharField(max_length=150, blank=True)
-    location             = models.CharField(max_length=150, blank=True)
-    contract_type        = models.CharField(
-                               max_length=20,
-                               choices=ContractType.choices,
-                               blank=True
-                           )
+    entreprise           = models.CharField(max_length=255)
+    secteur              = models.CharField(max_length=150, blank=True)
+    localisation         = models.CharField(max_length=150, blank=True)
+    type_contrat = models.CharField(
+                                    max_length=100,
+                                    blank=True,
+                                    default=''
+                                )
     experience_required  = models.PositiveIntegerField(default=0)
     tfidf_vector         = models.JSONField(null=True, blank=True)
     status               = models.CharField(
@@ -96,14 +92,14 @@ class JobOffer(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['status']),
-            models.Index(fields=['location']),
-            models.Index(fields=['contract_type']),
+            models.Index(fields=['localisation']),
+            models.Index(fields=['type_contrat']),
             models.Index(fields=['admin']),
             models.Index(fields=['cluster']),
         ]
  
     def __str__(self):
-        return f"{self.title} — {self.company} ({self.status})"
+        return f"{self.title} — {self.entreprise} ({self.status})"
  
     def publish(self):
         """Publie l'offre et enregistre la date de publication."""

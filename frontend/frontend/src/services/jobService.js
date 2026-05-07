@@ -1,9 +1,27 @@
-export const getJobs = async () => {
+import API from "./api";
+
+function normalizeJob(job) {
   return {
-    data: [
-      { id: 1, title: "Data Scientist", company: "OCP", location: "Casablanca", score: 85 },
-      { id: 2, title: "AI Engineer", company: "Capgemini", location: "Rabat", score: 78 },
-      { id: 3, title: "Backend Developer", company: "Oracle", location: "Remote", score: 92 },
-    ],
+    id: job.id,
+    title: job.title ?? "",
+    company: job.company ?? "",
+    location: job.location ?? "",
+    sector: job.sector ?? "",
+    contractType: job.contract_type ?? "",
+    description: job.description ?? "",
+    clusterNumber: job.cluster_number,
+    publishedAt: job.published_at,
+    createdAt: job.created_at,
+    status: job.status ?? "",
   };
-};
+}
+
+export async function getJobs() {
+  const response = await API.get("/jobs/");
+  return {
+    ...response,
+    data: Array.isArray(response.data)
+      ? response.data.map(normalizeJob)
+      : [],
+  };
+}

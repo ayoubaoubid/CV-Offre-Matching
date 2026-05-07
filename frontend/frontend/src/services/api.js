@@ -1,6 +1,8 @@
-import axios from "axios"; // une librairie qui permet de faire des requêtes HTTP
+import axios from "axios";
 
-// Création de l'instance Axios avec la configuration de base
+export const AUTH_STORAGE_KEY = "auth_tokens";
+export const CURRENT_USER_STORAGE_KEY = "current_user";
+
 const API = axios.create({
   baseURL: "http://127.0.0.1:8000/api",
   headers: {
@@ -8,43 +10,47 @@ const API = axios.create({
   },
 });
 
-// --- INTERCEPTEUR DE REQUÊTES ---
-// S'exécute avant chaque requête envoyée au backend
 API.interceptors.request.use(
   (config) => {
-    // Si vous utilisez des tokens (JWT), décommentez les lignes suivantes plus tard :
-    // const token = localStorage.getItem("access_token");
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    const rawTokens = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (rawTokens) {
+      try {
+        const tokens = JSON.parse(rawTokens);
+        if (tokens?.access) {
+          config.headers.Authorization = `Bearer ${tokens.access}`;
+        }
+      } catch (error) {
+        console.warn("Impossible de lire les tokens d'authentification.", error);
+      }
+    }
+
+    const rawUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    if (rawUser && !config.headers["X-User-Id"]) {
+      try {
+        const user = JSON.parse(rawUser);
+        if (user?.id) {
+          config.headers["X-User-Id"] = String(user.id);
+        }
+      } catch (error) {
+        console.warn("Impossible de lire current_user depuis localStorage.", error);
+      }
+    }
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// --- INTERCEPTEUR DE RÉPONSES ---
-// S'exécute quand le backend répond, avant que votre composant (ex: App.jsx) ne reçoive les données
 API.interceptors.response.use(
-  (response) => {
-    // Tout va bien (Status 2xx)
-    return response;
-  },
+  (response) => response,
   (error) => {
-    // Gestion globale des erreurs
-    if (!error.response) {
-      console.error("Erreur réseau : Le backend semble injoignable.");
-    } else {
-      const { status } = error.response;
-      if (status === 401) {
-        console.warn("Non autorisé ! Redirection vers la page de connexion...");
-        // Exemple: window.location.href = '/';
-      } else if (status === 404) {
-        console.warn("Ressource introuvable !");
-      } else if (status >= 500) {
-        console.error("Erreur serveur côté Django !");
-      }
+    if (error.response?.status === 401) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+    } else if (!error.response) {
+      console.error("Erreur reseau: le backend semble injoignable.");
+    } else if (error.response.status >= 500) {
+      console.error("Erreur serveur cote Django.");
     }
     return Promise.reject(error);
   }

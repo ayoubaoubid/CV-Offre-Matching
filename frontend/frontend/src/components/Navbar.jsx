@@ -1,17 +1,18 @@
-import { useContext, useState, useRef, useEffect } from "react";
-import { AuthContext } from "../context/AuthContext";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+import { AuthContext } from "../context/AuthContext";
+
 
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-
   const [open, setOpen] = useState(false);
   const menuRef = useRef();
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
         setOpen(false);
       }
     };
@@ -20,115 +21,73 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const initials = `${user?.first_name?.[0] ?? ""}${user?.last_name?.[0] ?? ""}`.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
+
   return (
-    <nav
-      className="navbar navbar-dark px-3 d-flex justify-content-between"
-      style={{ backgroundColor: "#003008" }}
-    >
+    <nav className="app-navbar">
+      <div className="page-frame page-frame--nav d-flex justify-content-between align-items-center">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <button className="btn btn-light btn-sm fw-bold shadow-sm" onClick={() => navigate(user ? "/dashboard" : "/")}>
+            CV Matching
+          </button>
 
-      {/* LEFT SIDE */}
-      <div className="d-flex align-items-center gap-2">
+          {user ? (
+            <>
+              <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/results")}>
+                Matching
+              </button>
+              <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/upload")}>
+                CV et Skills
+              </button>
+            </>
+          ) : null}
+        </div>
 
-        {/* Logo */}
-        <button
-          className="btn btn-light btn-sm fw-bold shadow-sm"
-          onClick={() => navigate("/dashboard")}
-        >
-          💼 CV Matching
-        </button>
-
-        {/* 2 BUTTONS ONLY IF LOGGED IN */}
-        {user && (
-          <>
-
-            <button
-              className="btn btn-outline-light btn-sm"
-              onClick={() => navigate("/results")}
-            >
-              Results
-            </button>
-
-            <button
-              className="btn btn-outline-light btn-sm"
-              onClick={() => navigate("/upload")}
-            >
-              Upload CV
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* RIGHT SIDE (USER MENU) */}
-      <div className="position-relative" ref={menuRef}>
-
-        {user ? (
-          <>
-            {/* CIRCLE USER */}
-            <div
-              onClick={() => setOpen(!open)}
-              style={{
-                width: "42px",
-                height: "42px",
-                borderRadius: "50%",
-                background: "#0d6efd",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              {user.email[0].toUpperCase()}
-            </div>
-
-            {/* DROPDOWN */}
-            {open && (
+        <div className="position-relative" ref={menuRef}>
+          {user ? (
+            <>
               <div
-                style={{
-                  position: "absolute",
-                  top: "55px",
-                  right: 0,
-                  background: "white",
-                  borderRadius: "10px",
-                  width: "160px",
-                  boxShadow: "0 5px 15px rgba(0,0,0,0.2)",
-                }}
+                className="nav-avatar"
+                onClick={() => setOpen((current) => !current)}
               >
-                <div
-                  style={menuItemStyle}
-                  onClick={() => {
+                {initials}
+              </div>
+
+              {open ? (
+                <div className="nav-menu">
+                  <div className="px-3 py-2 border-bottom">
+                    <div className="fw-bold">{user.first_name} {user.last_name}</div>
+                    <div className="small text-muted">{user.email}</div>
+                  </div>
+
+                  <div style={menuItemStyle} onClick={() => {
                     navigate("/profile");
                     setOpen(false);
-                  }}
-                >
-                  👤 Profile
-                </div>
+                  }}>
+                    Profile
+                  </div>
 
-                <div
-                  style={menuItemStyle}
-                  onClick={() => {
+                  <div style={menuItemStyle} onClick={() => {
                     logout();
                     navigate("/");
-                  }}
-                >
-                  🚪 Logout
+                    setOpen(false);
+                  }}>
+                    Logout
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => navigate("/")}
-          >
-            Login
-          </button>
-        )}
+              ) : null}
+            </>
+          ) : (
+            <button className="btn btn-primary btn-sm" onClick={() => navigate("/")}>
+              Login
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   );
 }
+
 
 const menuItemStyle = {
   padding: "12px",

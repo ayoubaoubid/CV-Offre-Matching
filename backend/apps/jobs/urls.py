@@ -1,9 +1,8 @@
 from django.urls import path
 
-# Importez vos vues ici au fur et à mesure
-# from . import views
+from .views import JobOfferListCreateView
+
 
 urlpatterns = [
-    # Exemple d'ajout de route plus tard :
-    # path('', views.JobListView.as_view(), name='job-list'),
+    path("", JobOfferListCreateView.as_view(), name="job-list-create"),
 ]

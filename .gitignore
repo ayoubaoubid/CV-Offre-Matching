@@ -8,7 +8,7 @@ venv/
 
 
 # Environment
-.env
+*.env
 
 # Notebook checkpoints
 .ipynb_checkpoints/
