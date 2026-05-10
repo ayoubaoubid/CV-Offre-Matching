@@ -9,7 +9,7 @@ from sklearn.decomposition import PCA
 # LOAD DATA
 # =========================
 df = pd.read_csv("../preprocessing/cleaned_offres.csv")
-X = joblib.load("../preprocessing/tfidf_matrix.pkl")
+X = joblib.load("../models/tfidf_matrix.pkl")
 
 # =========================
 # FIND OPTIMAL K
