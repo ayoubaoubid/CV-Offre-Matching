@@ -25,7 +25,7 @@ REKRUTE_CSV = os.path.join(
     PROJECT_DIR, "data_engine", "scraping", "rekrute_jobs_.csv"
 )
 MAROCANNONCES_CSV = os.path.join(
-    PROJECT_DIR, "data_engine", "scraping", "marocannonces_offres_emploi.csv"
+    PROJECT_DIR, "data_engine", "scraping","BeautifulSoup", "marocannonces_offres_emploi.csv"
 )
 
 
@@ -92,8 +92,25 @@ def load_cluster_rows():
     return indexed
 
 
+def dedupe_candidates(candidates):
+    unique = {}
+    for row in candidates:
+        key = (
+            row["titre"],
+            row["entreprise"],
+            row["secteur"],
+            row["localisation"],
+            row["contrat"],
+            row["cluster_number"],
+        )
+        unique.setdefault(key, row)
+    return list(unique.values())
+
+
 def pick_cluster_row(job, indexed_rows):
-    candidates = indexed_rows.get((normalize(job.title), normalize(job.entreprise)), [])
+    candidates = dedupe_candidates(
+        indexed_rows.get((normalize(job.title), normalize(job.entreprise)), [])
+    )
     if not candidates:
         return None, "introuvable"
 
@@ -109,9 +126,13 @@ def pick_cluster_row(job, indexed_rows):
     for reason, predicate in filters:
         narrowed = [row for row in candidates if predicate(row)]
         if narrowed:
-            candidates = narrowed
+            candidates = dedupe_candidates(narrowed)
         if len(candidates) == 1:
             return candidates[0], f"titre+entreprise+{reason}"
+
+    cluster_numbers = {row["cluster_number"] for row in candidates}
+    if len(cluster_numbers) == 1:
+        return candidates[0], "titre+entreprise+cluster-identique"
 
     return None, "ambigu"
 
@@ -178,9 +199,6 @@ def sync_job_offers_and_users():
             continue
         matched_rows.append((job, row, reason))
 
-    if unmatched_jobs:
-        raise RuntimeError(f"Offres non appariées: {unmatched_jobs[:10]}")
-
     cluster_map = ensure_clusters({row["cluster_number"] for _, row, _ in matched_rows})
 
     cluster_updates = 0
@@ -189,6 +207,7 @@ def sync_job_offers_and_users():
     marocannonces_count = 0
     fallback_count = 0
     matching_stats = defaultdict(int)
+    unmatched_count = len(unmatched_jobs)
 
     for job, row, reason in matched_rows:
         matching_stats[reason] += 1
@@ -239,9 +258,14 @@ def sync_job_offers_and_users():
     print(f"Descriptions reconstruites: {fallback_count}")
     print(f"Clusters disponibles: {Cluster.objects.count()}")
     print(f"Utilisateurs avec mot de passe simplifie: {password_updates}")
+    print(f"Offres non appariees ignorees: {unmatched_count}")
     print("Detail du matching clusters:")
     for reason, count in sorted(matching_stats.items()):
         print(f"  - {reason}: {count}")
+    if unmatched_jobs:
+        print("Exemples d'offres non appariees:")
+        for job_id, title, entreprise, reason in unmatched_jobs[:10]:
+            print(f"  - {job_id} | {title} | {entreprise} | {reason}")
     print("Mots de passe definis:")
     print("  - admins: admin123")
     print("  - candidats: candidate123")
