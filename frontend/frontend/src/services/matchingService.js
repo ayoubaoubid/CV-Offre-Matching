@@ -1,8 +1,21 @@
-export const getMatchingResults = async () => {
+import API from "./api";
+
+
+function normalizeMatch(job) {
   return {
-    data: [
-      { id: 1, title: "ML Engineer", company: "Google", location: "Remote", score: 95 },
-      { id: 2, title: "Data Analyst", company: "Deloitte", location: "Casablanca", score: 80 },
-    ],
+    ...job,
+    contractType: job.contract_type ?? job.contractType ?? "",
+    score: job.score ?? job.matching_score ?? 0,
   };
-};
+}
+
+
+export async function getRecommendations() {
+  const response = await API.get("/matching/recommendations/");
+  return response.data.map(normalizeMatch);
+}
+
+
+export async function getMatchingResults() {
+  return getRecommendations();
+}
