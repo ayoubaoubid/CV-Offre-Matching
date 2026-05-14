@@ -16,7 +16,7 @@ class Cluster(models.Model):
     """
  
     label      = models.CharField(max_length=150, blank=True)
-    k_value    = models.PositiveIntegerField()
+    k_value    = models.IntegerField()
     domain     = models.CharField(max_length=150, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
  
