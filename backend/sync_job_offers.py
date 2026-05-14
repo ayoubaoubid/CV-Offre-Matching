@@ -2,6 +2,7 @@ import os
 import sys
 import unicodedata
 from collections import defaultdict
+from difflib import SequenceMatcher
 
 import django
 import pandas as pd
@@ -13,13 +14,10 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 from apps.jobs.models import Cluster, JobOffer  # noqa: E402
-from apps.users.models import User  # noqa: E402
-
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 CLUSTERED_CSV = os.path.join(
-    PROJECT_DIR, "data_engine", "clustering", "clustered_offres.csv"
+    PROJECT_DIR, "data_engine", "clustering", "dbscan_clustered_offres_new.csv"
 )
 REKRUTE_CSV = os.path.join(
     PROJECT_DIR, "data_engine", "scraping", "rekrute_jobs_.csv"
@@ -41,6 +39,26 @@ def clean_text(value):
     if pd.isna(value) or value is None:
         return ""
     return " ".join(str(value).strip().split())
+
+
+def normalize_title(value):
+    text = normalize(value)
+    for old, new in {
+        "/": " ",
+        "-": " ",
+        "(": " ",
+        ")": " ",
+        ",": " ",
+        ".": " ",
+    }.items():
+        text = text.replace(old, new)
+    return " ".join(text.split())
+
+
+def title_similarity(left, right):
+    if not left or not right:
+        return 0
+    return SequenceMatcher(None, normalize_title(left), normalize_title(right)).ratio()
 
 
 def build_fallback_description(row):
@@ -75,6 +93,7 @@ def build_fallback_description(row):
 
 def load_cluster_rows():
     df = pd.read_csv(CLUSTERED_CSV).fillna("")
+    cluster_column = "cluster_dbscan" if "cluster_dbscan" in df.columns else "cluster"
     indexed = defaultdict(list)
 
     for _, row in df.iterrows():
@@ -84,12 +103,24 @@ def load_cluster_rows():
             "secteur": normalize(row.get("secteur")),
             "localisation": normalize(row.get("localisation")),
             "contrat": normalize(row.get("contrat")),
-            "cluster_number": int(row.get("cluster")),
+            "cluster_number": int(row.get(cluster_column)),
             "raw": row.to_dict(),
         }
         indexed[(record["titre"], record["entreprise"])].append(record)
 
     return indexed
+
+
+def load_all_cluster_numbers():
+    df = pd.read_csv(CLUSTERED_CSV).fillna("")
+    cluster_column = "cluster_dbscan" if "cluster_dbscan" in df.columns else "cluster"
+    return {int(value) for value in df[cluster_column].tolist()}
+
+
+def iter_all_cluster_rows(indexed_rows):
+    for rows in indexed_rows.values():
+        for row in rows:
+            yield row
 
 
 def dedupe_candidates(candidates):
@@ -111,30 +142,72 @@ def pick_cluster_row(job, indexed_rows):
     candidates = dedupe_candidates(
         indexed_rows.get((normalize(job.title), normalize(job.entreprise)), [])
     )
-    if not candidates:
-        return None, "introuvable"
-
     if len(candidates) == 1:
         return candidates[0], "titre+entreprise"
 
-    filters = [
-        ("localisation", lambda row: row["localisation"] == normalize(job.localisation)),
-        ("secteur", lambda row: row["secteur"] == normalize(job.secteur)),
-        ("contrat", lambda row: row["contrat"] == normalize(job.type_contrat)),
+    normalized_title = normalize(job.title)
+    normalized_company = normalize(job.entreprise)
+    normalized_location = normalize(job.localisation)
+    normalized_contract = normalize(job.type_contrat)
+
+    if candidates:
+        filters = [
+            ("localisation", lambda row: row["localisation"] == normalized_location),
+            ("secteur", lambda row: row["secteur"] == normalize(job.secteur)),
+            ("contrat", lambda row: row["contrat"] == normalized_contract),
+        ]
+
+        for reason, predicate in filters:
+            narrowed = [row for row in candidates if predicate(row)]
+            if narrowed:
+                candidates = dedupe_candidates(narrowed)
+            if len(candidates) == 1:
+                return candidates[0], f"titre+entreprise+{reason}"
+
+        cluster_numbers = {row["cluster_number"] for row in candidates}
+        if len(cluster_numbers) == 1:
+            return candidates[0], "titre+entreprise+cluster-identique"
+
+    # Fallback 1: titre + localisation si cela identifie un cluster unique.
+    title_location_candidates = [
+        row for row in iter_all_cluster_rows(indexed_rows)
+        if row["titre"] == normalized_title
+        and row["localisation"] == normalized_location
     ]
+    title_location_candidates = dedupe_candidates(title_location_candidates)
+    title_location_clusters = {row["cluster_number"] for row in title_location_candidates}
+    if len(title_location_clusters) == 1 and title_location_candidates:
+        return title_location_candidates[0], "titre+localisation"
 
-    for reason, predicate in filters:
-        narrowed = [row for row in candidates if predicate(row)]
-        if narrowed:
-            candidates = dedupe_candidates(narrowed)
-        if len(candidates) == 1:
-            return candidates[0], f"titre+entreprise+{reason}"
+    # Fallback 2: fuzzy matching sur le titre avec meme entreprise.
+    same_company_candidates = dedupe_candidates([
+        row for row in iter_all_cluster_rows(indexed_rows)
+        if row["entreprise"] == normalized_company
+    ])
+    best_candidate = None
+    best_score = 0
+    second_best_score = 0
+    for row in same_company_candidates:
+        current_score = title_similarity(job.title, row["titre"])
+        if row["localisation"] == normalized_location and normalized_location:
+            current_score += 0.08
+        if row["contrat"] == normalized_contract and normalized_contract:
+            current_score += 0.04
+        if current_score > best_score:
+            second_best_score = best_score
+            best_score = current_score
+            best_candidate = row
+        elif current_score > second_best_score:
+            second_best_score = current_score
 
-    cluster_numbers = {row["cluster_number"] for row in candidates}
-    if len(cluster_numbers) == 1:
-        return candidates[0], "titre+entreprise+cluster-identique"
+    if (
+        best_candidate is not None
+        and best_score >= 0.88
+        and (best_score - second_best_score) >= 0.03
+    ):
+        return best_candidate, "fuzzy-titre+entreprise"
 
-    return None, "ambigu"
+    return None, "introuvable" if not candidates else "ambigu"
 
 
 def load_rekrute_descriptions():
@@ -167,15 +240,17 @@ def ensure_clusters(cluster_numbers):
     cluster_map = {}
 
     for cluster_number in sorted(cluster_numbers):
-        cluster = Cluster.objects.filter(k_value=cluster_number).first()
+        stored_k_value = cluster_number
+        expected_label = "Cluster -1 (Noise)" if cluster_number == -1 else f"Cluster {cluster_number}"
+        cluster = Cluster.objects.filter(k_value=stored_k_value).first()
         if cluster is None:
             cluster = Cluster.objects.create(
-                label=f"Cluster {cluster_number}",
-                k_value=cluster_number,
+                label=expected_label,
+                k_value=stored_k_value,
                 domain="",
             )
-        elif cluster.label != f"Cluster {cluster_number}":
-            cluster.label = f"Cluster {cluster_number}"
+        elif cluster.label != expected_label:
+            cluster.label = expected_label
             cluster.save(update_fields=["label"])
 
         cluster_map[cluster_number] = cluster
@@ -184,10 +259,9 @@ def ensure_clusters(cluster_numbers):
 
 
 @transaction.atomic
-def sync_job_offers_and_users():
+def sync_job_offers():
     indexed_rows = load_cluster_rows()
-    rekrute_descriptions = load_rekrute_descriptions()
-    marocannonces_descriptions = load_marocannonces_descriptions()
+    all_cluster_numbers = load_all_cluster_numbers()
 
     matched_rows = []
     unmatched_jobs = []
@@ -199,20 +273,17 @@ def sync_job_offers_and_users():
             continue
         matched_rows.append((job, row, reason))
 
-    cluster_map = ensure_clusters({row["cluster_number"] for _, row, _ in matched_rows})
+    cluster_map = ensure_clusters(all_cluster_numbers)
 
     cluster_updates = 0
-    description_updates = 0
-    rekrute_count = 0
-    marocannonces_count = 0
-    fallback_count = 0
     matching_stats = defaultdict(int)
     unmatched_count = len(unmatched_jobs)
 
     for job, row, reason in matched_rows:
         matching_stats[reason] += 1
 
-        cluster = cluster_map[row["cluster_number"]]
+        cluster_number = row["cluster_number"]
+        cluster = cluster_map[cluster_number]
         changed_fields = []
 
         if job.cluster_id != cluster.id:
@@ -220,44 +291,12 @@ def sync_job_offers_and_users():
             changed_fields.append("cluster")
             cluster_updates += 1
 
-        description = rekrute_descriptions.get(
-            (normalize(job.title), normalize(job.entreprise))
-        )
-        if description:
-            rekrute_count += 1
-        else:
-            description = marocannonces_descriptions.get(
-                (normalize(job.title), normalize(job.localisation))
-            )
-            if description:
-                marocannonces_count += 1
-            else:
-                description = build_fallback_description(row["raw"])
-                fallback_count += 1
-
-        if job.description != description:
-            job.description = description
-            changed_fields.append("description")
-            description_updates += 1
-
         if changed_fields:
             job.save(update_fields=changed_fields)
 
-    password_updates = 0
-    for user in User.objects.all():
-        simple_password = "admin123" if user.role == User.Role.ADMIN else "candidate123"
-        user.set_password(simple_password)
-        user.save(update_fields=["password"])
-        password_updates += 1
-
     print("Synchronisation terminee")
     print(f"Offres mises a jour (cluster): {cluster_updates}")
-    print(f"Offres mises a jour (description): {description_updates}")
-    print(f"Descriptions depuis ReKrute: {rekrute_count}")
-    print(f"Descriptions depuis MarocAnnonces: {marocannonces_count}")
-    print(f"Descriptions reconstruites: {fallback_count}")
     print(f"Clusters disponibles: {Cluster.objects.count()}")
-    print(f"Utilisateurs avec mot de passe simplifie: {password_updates}")
     print(f"Offres non appariees ignorees: {unmatched_count}")
     print("Detail du matching clusters:")
     for reason, count in sorted(matching_stats.items()):
@@ -266,10 +305,5 @@ def sync_job_offers_and_users():
         print("Exemples d'offres non appariees:")
         for job_id, title, entreprise, reason in unmatched_jobs[:10]:
             print(f"  - {job_id} | {title} | {entreprise} | {reason}")
-    print("Mots de passe definis:")
-    print("  - admins: admin123")
-    print("  - candidats: candidate123")
-
-
 if __name__ == "__main__":
-    sync_job_offers_and_users()
+    sync_job_offers()

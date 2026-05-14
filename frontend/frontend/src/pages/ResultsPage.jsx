@@ -84,6 +84,12 @@ export default function ResultsPage() {
           <p className="text-muted mt-3">Aucune recommandation disponible pour le moment.</p>
         ) : null}
 
+        {!isLoading && !errorMessage && results.length > 0 ? (
+          <div className="alert alert-info mt-3" role="alert">
+            <strong>{results.length}</strong> offre(s) similaire(s) trouvée(s).
+          </div>
+        ) : null}
+
         <div className="row mt-3">
           {!isLoading && results.map((job) => (
             <div className="col-md-6 col-lg-4 mb-3" key={job.id}>

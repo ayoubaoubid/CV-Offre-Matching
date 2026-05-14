@@ -7,7 +7,12 @@ export default function JobCard({ job }) {
     <div className="surface-card job-card h-100">
       <div className="job-card__header">
         <h5 className="mb-2">{job.title}</h5>
-        {job.contractType ? <span className="job-badge">{job.contractType}</span> : null}
+        <div className="d-flex align-items-center gap-2">
+          {job.contractType ? <span className="job-badge">{job.contractType}</span> : null}
+          {job.score !== undefined && job.score !== null ? (
+            <span className="badge bg-success">Score: {job.score}%</span>
+          ) : null}
+        </div>
       </div>
 
       <p className="mb-1 fw-semibold">{job.company || "Entreprise non renseignee"}</p>
