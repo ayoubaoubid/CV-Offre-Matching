@@ -2,7 +2,11 @@ import { useContext, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { AuthContext } from "../context/AuthContext";
-import { getJobCandidates, getRecruiterJob } from "../services/recruiterService";
+import {
+  getJobCandidates,
+  getRecruiterJob,
+  inviteCandidateToApply,
+} from "../services/recruiterService";
 
 
 export default function RecruiterCandidatesPage() {
@@ -13,6 +17,7 @@ export default function RecruiterCandidatesPage() {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [inviteMessages, setInviteMessages] = useState({});
 
   useEffect(() => {
     if (!authReady) {
@@ -59,6 +64,25 @@ export default function RecruiterCandidatesPage() {
     return <div className="page-frame py-5"><p>Chargement...</p></div>;
   }
 
+  const inviteCandidate = async (candidateId) => {
+    setInviteMessages((current) => ({
+      ...current,
+      [candidateId]: "Envoi...",
+    }));
+    try {
+      const response = await inviteCandidateToApply(jobId, candidateId);
+      setInviteMessages((current) => ({
+        ...current,
+        [candidateId]: response.data?.message || "Invitation envoyee.",
+      }));
+    } catch (requestError) {
+      setInviteMessages((current) => ({
+        ...current,
+        [candidateId]: requestError.response?.data?.message || "Invitation impossible.",
+      }));
+    }
+  };
+
   return (
     <div className="app-page">
       <div className="page-frame">
@@ -98,10 +122,19 @@ export default function RecruiterCandidatesPage() {
                   <a className="btn btn-outline-primary btn-sm" href={`mailto:${candidate.email}`}>
                     Contacter
                   </a>
-                  <button className="btn btn-outline-dark btn-sm" type="button">
+                  <button
+                    className="btn btn-outline-dark btn-sm"
+                    type="button"
+                    onClick={() => inviteCandidate(candidate.candidate_id)}
+                  >
                     Inviter a postuler
                   </button>
                 </div>
+                {inviteMessages[candidate.candidate_id] ? (
+                  <p className="small text-success mb-0 mt-2">
+                    {inviteMessages[candidate.candidate_id]}
+                  </p>
+                ) : null}
               </div>
             </div>
           ))}

@@ -37,6 +37,29 @@ function buildPayload(form) {
 }
 
 
+function getSaveErrorMessage(requestError) {
+  if (!requestError?.response) {
+    return "Erreur reseau: le backend ne repond pas.";
+  }
+
+  const serverData = requestError.response.data;
+  if (serverData?.message) {
+    return serverData.message;
+  }
+
+  if (serverData && typeof serverData === "object") {
+    const firstError = Object.entries(serverData)[0];
+    if (firstError) {
+      const [field, value] = firstError;
+      const message = Array.isArray(value) ? value[0] : value;
+      return `${field}: ${message}`;
+    }
+  }
+
+  return `Erreur ${requestError.response.status}: impossible de sauvegarder l'offre.`;
+}
+
+
 export default function RecruiterJobFormPage() {
   const { user, authReady } = useContext(AuthContext);
   const { jobId } = useParams();
@@ -117,8 +140,8 @@ export default function RecruiterJobFormPage() {
         await createRecruiterJob(payload);
       }
       navigate("/recruiter/jobs");
-    } catch {
-      setError("Impossible de sauvegarder l'offre.");
+    } catch (requestError) {
+      setError(getSaveErrorMessage(requestError));
     } finally {
       setSaving(false);
     }
