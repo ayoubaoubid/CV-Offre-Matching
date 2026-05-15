@@ -13,6 +13,7 @@ export default function ResultsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+
   useEffect(() => {
     if (authReady && !user) {
       navigate("/");
@@ -98,13 +99,6 @@ export default function ResultsPage() {
           ))}
         </div>
 
-        <div className="surface-card info-card mt-4">
-          <h4>Visualisation</h4>
-          <p className="mb-0 text-muted">
-            Cette zone peut accueillir ensuite le radar des skills, le nuage de mots,
-            la distribution des scores et la visualisation des clusters.
-          </p>
-        </div>
       </div>
     </div>
   );

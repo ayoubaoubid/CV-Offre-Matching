@@ -10,6 +10,11 @@ export async function registerUser(data) {
   return response;
 }
 
+export async function registerRecruiter(data) {
+  const response = await API.post("/users/register-recruiter/", data);
+  return response;
+}
+
 export async function fetchCurrentUser() {
   const response = await API.get("/users/me/");
   return response;

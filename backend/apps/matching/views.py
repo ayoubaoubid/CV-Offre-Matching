@@ -227,6 +227,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import spacy
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -235,8 +236,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
 
 from apps.jobs.models import JobOffer
-from apps.users.models import CV
+from apps.users.models import CV, User
 from apps.users.views import get_current_user
+
+from .models import Application, Notification
 
 
 # Section modifiee: logger pour les warnings de fallback clustering.
@@ -720,3 +723,161 @@ class MatchRecommendationsView(APIView):
         if cluster_used == -1:
             results = results[:MAX_OUTLIER_RESULTS]
         return Response(results)
+
+
+def serialize_application(application):
+    profile = getattr(application.user, "profile", None)
+    return {
+        "id": application.id,
+        "candidate_id": application.user.id,
+        "candidate_name": application.user.get_full_name(),
+        "candidate_email": application.user.email,
+        "candidate_location": profile.location if profile else "",
+        "candidate_title": profile.title if profile else "",
+        "job_id": application.job.pk,
+        "job_title": application.job.title,
+        "job_company": application.job.entreprise,
+        "status": application.status,
+        "cover_letter": application.cover_letter,
+        "internal_note": application.internal_note,
+        "matching_score": round((application.matching_score or 0) * 100, 2),
+        "cosine_score": round((application.cosine_score or 0) * 100, 2),
+        "jaccard_score": round((application.jaccard_score or 0) * 100, 2),
+        "experience_match": application.exp_match,
+        "location_match": application.geo_match,
+        "applied_at": application.applied_at,
+        "reviewed_at": application.reviewed_at,
+        "cv_text": application.cv.raw_text if application.cv else "",
+    }
+
+
+def serialize_notification(notification):
+    application = notification.application
+    return {
+        "id": notification.id,
+        "type": notification.type,
+        "title": notification.title,
+        "message": notification.message,
+        "is_read": notification.is_read,
+        "created_at": notification.created_at,
+        "application_id": application.id if application else None,
+        "job_id": application.job_id if application else None,
+        "job_title": application.job.title if application else "",
+    }
+
+
+class CandidateNotificationsView(APIView):
+    def get(self, request):
+        user = get_current_user(request)
+        if user is None:
+            return Response(
+                {"message": "Utilisateur non authentifie."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        notifications = Notification.objects.filter(user=user).select_related(
+            "application",
+            "application__job",
+        )
+        return Response([serialize_notification(item) for item in notifications])
+
+
+class CandidateNotificationReadView(APIView):
+    def patch(self, request, notification_id):
+        user = get_current_user(request)
+        if user is None:
+            return Response(
+                {"message": "Utilisateur non authentifie."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        notification = Notification.objects.filter(id=notification_id, user=user).first()
+        if notification is None:
+            return Response(
+                {"message": "Notification introuvable."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        notification.mark_as_read()
+        return Response(serialize_notification(notification))
+
+
+class RecruiterApplicationsView(APIView):
+    def get(self, request):
+        user = get_current_user(request)
+        if user is None:
+            return Response(
+                {"message": "Utilisateur non authentifie."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if user.role != User.Role.ADMIN:
+            return Response(
+                {"message": "Acces reserve aux recruteurs."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        applications = Application.objects.filter(job__admin=user).select_related(
+            "user",
+            "user__profile",
+            "job",
+            "cv",
+        )
+        job_id = request.query_params.get("job_id")
+        status_filter = request.query_params.get("status")
+        if job_id:
+            applications = applications.filter(job_id=job_id)
+        if status_filter:
+            applications = applications.filter(status=status_filter)
+
+        return Response([serialize_application(app) for app in applications])
+
+
+class RecruiterApplicationStatusView(APIView):
+    def patch(self, request, application_id):
+        user = get_current_user(request)
+        if user is None:
+            return Response(
+                {"message": "Utilisateur non authentifie."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if user.role != User.Role.ADMIN:
+            return Response(
+                {"message": "Acces reserve aux recruteurs."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        application = (
+            Application.objects.filter(id=application_id, job__admin=user)
+            .select_related("user", "user__profile", "job", "cv")
+            .first()
+        )
+        if application is None:
+            return Response(
+                {"message": "Candidature introuvable."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        next_status = request.data.get("status")
+        allowed_statuses = {choice[0] for choice in Application.Status.choices}
+        if next_status not in allowed_statuses:
+            return Response(
+                {"message": "Statut de candidature invalide."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        application.status = next_status
+        application.internal_note = request.data.get(
+            "internal_note",
+            application.internal_note,
+        )
+        application.reviewed_by = user
+        application.reviewed_at = timezone.now()
+        application.save(
+            update_fields=[
+                "status",
+                "internal_note",
+                "reviewed_by",
+                "reviewed_at",
+            ]
+        )
+        return Response(serialize_application(application))

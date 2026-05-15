@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { AuthContext } from "../context/AuthContext";
 import { fetchCurrentUser, updateCurrentUser } from "../services/authService";
+import {getSavedJobs,saveJob,removeSavedJob,} from "../services/savedService";
 
 
 function buildFormFromUser(user) {
@@ -30,7 +31,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-
+  const [savedJobs, setSavedJobs] = useState([]);
   useEffect(() => {
     if (!authReady) {
       return;
@@ -52,6 +53,8 @@ export default function ProfilePage() {
         }
         updateUser(response.data.user);
         setForm(buildFormFromUser(response.data.user));
+        const saved = await getSavedJobs();
+        setSavedJobs(saved.data);
       } catch {
         if (!isMounted) {
           return;
@@ -74,6 +77,24 @@ export default function ProfilePage() {
   const updateField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
+
+  const toggleSaveJob = async (jobId, isSaved) => {
+  try {
+    if (isSaved) {
+      await removeSavedJob(jobId);
+      setSavedJobs((current) =>
+        current.filter((job) => job.job_id !== jobId)
+      );
+    } else {
+      await saveJob(jobId);
+
+      const saved = await getSavedJobs();
+      setSavedJobs(saved.data);
+    }
+  } catch {
+    setError("Impossible de modifier les favoris.");
+  }
+};
 
   const submit = async (event) => {
     event.preventDefault();
@@ -149,6 +170,58 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        <div className="surface-card info-card mt-4">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h5 className="mb-0">Jobs sauvegardes</h5>
+            <span className="badge bg-primary">
+              {savedJobs.length}
+            </span>
+          </div>
+
+          {savedJobs.length ? (
+            <div className="row g-3">
+              {savedJobs.map((job) => (
+                <div className="col-md-6" key={job.id}>
+                  <div className="job-card h-100">
+                    <div className="d-flex justify-content-between align-items-start">
+                      <div>
+                        <h6 className="fw-bold mb-1">
+                          {job.title}
+                        </h6>
+
+                        <p className="text-muted mb-1">
+                          {job.company}
+                        </p>
+
+                        <p className="small mb-2">
+                          📍 {job.location}
+                        </p>
+                      </div>
+
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => toggleSaveJob(job.job_id, true)}
+                      >
+                        Retirer
+                      </button>
+                    </div>
+
+                    <div className="mt-3">
+                      <small className="text-muted">
+                        Sauvegarde le{" "}
+                        {new Date(job.saved_at).toLocaleDateString()}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted mb-0">
+              Aucun job sauvegarde.
+            </p>
+          )}
+        </div>      
         <form className="surface-card form-card mt-4" onSubmit={submit}>
           <h5>Modifier mon profil</h5>
 
