@@ -1,0 +1,11 @@
+pandas
+requests
+beautifulsoup4
+lxml
+selenium
+webdriver-manager
+joblib
+scikit-learn
+matplotlib
+spacy
+fr-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/fr_core_news_sm-3.8.0/fr_core_news_sm-3.8.0-py3-none-any.whl
