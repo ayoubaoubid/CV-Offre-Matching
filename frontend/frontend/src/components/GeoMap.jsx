@@ -1,10 +1,48 @@
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import { useEffect, useState } from "react";
+import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+
+import api from "../services/api";
 
 export default function GeoMap() {
+
+  const [cities, setCities] = useState([]);
+
+  useEffect(() => {
+
+    api.get("/jobs/map-stats/")
+      .then(res => setCities(res.data));
+
+  }, []);
+
   return (
-    <MapContainer center={[31.63, -8]} zoom={6} style={{ height: "400px" }}>
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      <Marker position={[33.57, -7.58]} />
+    <MapContainer
+      center={[31.79, -7.09]}
+      zoom={5}
+      style={{ height: "500px" }}
+    >
+
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+
+      {cities.map((city, index) => (
+
+        <CircleMarker
+          key={index}
+          center={[31, -7]}
+          radius={10}
+        >
+
+          <Popup>
+            <strong>{city.city}</strong>
+            <br />
+            {city.percent}% des offres
+          </Popup>
+
+        </CircleMarker>
+
+      ))}
+
     </MapContainer>
   );
 }
