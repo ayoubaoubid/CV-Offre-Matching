@@ -147,3 +147,25 @@ class JobSkill(models.Model):
     def __str__(self):
         req = 'requise' if self.is_required else 'souhaitée'
         return f"{self.job.title} — {self.skill.name} ({req})"
+
+# ─────────────────────────────────────────────
+#  Table : saved_jobs
+# ─────────────────────────────────────────────
+
+class SavedJob(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="saved_jobs"
+    )
+
+    job = models.ForeignKey(
+        JobOffer,
+        on_delete=models.CASCADE,
+        related_name="saved_by"
+    )
+
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "job")
