@@ -2,6 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AuthContext } from "../context/AuthContext";
+import { applyToJob } from "../services/applicationService";
 import {
   getNotifications,
   markNotificationAsRead,
@@ -14,6 +15,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [applyMessages, setApplyMessages] = useState({});
 
   useEffect(() => {
     if (!authReady) {
@@ -63,6 +65,25 @@ export default function NotificationsPage() {
     );
   };
 
+  const applyFromNotification = async (notification) => {
+    setApplyMessages((current) => ({
+      ...current,
+      [notification.id]: "Envoi...",
+    }));
+    try {
+      const response = await applyToJob(notification.job_id);
+      setApplyMessages((current) => ({
+        ...current,
+        [notification.id]: response.data?.message || "Candidature envoyee.",
+      }));
+    } catch (requestError) {
+      setApplyMessages((current) => ({
+        ...current,
+        [notification.id]: requestError.response?.data?.message || "Candidature impossible.",
+      }));
+    }
+  };
+
   if (!authReady) {
     return <div className="page-frame py-5"><p>Chargement...</p></div>;
   }
@@ -105,7 +126,20 @@ export default function NotificationsPage() {
                     Marquer comme lu
                   </button>
                 ) : null}
+                {notification.type === "new_offer" && notification.job_id ? (
+                  <button
+                    className="btn btn-primary btn-sm align-self-start"
+                    onClick={() => applyFromNotification(notification)}
+                  >
+                    Postuler
+                  </button>
+                ) : null}
               </div>
+              {applyMessages[notification.id] ? (
+                <p className="small text-success mb-0 mt-2">
+                  {applyMessages[notification.id]}
+                </p>
+              ) : null}
             </article>
           ))}
         </div>

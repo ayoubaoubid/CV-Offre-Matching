@@ -154,6 +154,14 @@ class Notification(models.Model):
                          related_name='notifications',
                          db_column='application_id'
                      )
+    job            = models.ForeignKey(
+                         JobOffer,
+                         on_delete=models.SET_NULL,
+                         null=True,
+                         blank=True,
+                         related_name='notifications',
+                         db_column='job_id'
+                     )
     type           = models.CharField(max_length=50, choices=Type.choices)
     title          = models.CharField(max_length=255)
     message        = models.TextField()

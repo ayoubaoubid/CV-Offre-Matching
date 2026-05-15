@@ -753,6 +753,7 @@ def serialize_application(application):
 
 def serialize_notification(notification):
     application = notification.application
+    job = application.job if application else notification.job
     return {
         "id": notification.id,
         "type": notification.type,
@@ -761,8 +762,8 @@ def serialize_notification(notification):
         "is_read": notification.is_read,
         "created_at": notification.created_at,
         "application_id": application.id if application else None,
-        "job_id": application.job_id if application else None,
-        "job_title": application.job.title if application else "",
+        "job_id": job.pk if job else None,
+        "job_title": job.title if job else "",
     }
 
 
@@ -800,6 +801,84 @@ class CandidateNotificationReadView(APIView):
 
         notification.mark_as_read()
         return Response(serialize_notification(notification))
+
+
+class CandidateApplyView(APIView):
+    def post(self, request, job_id):
+        user = get_current_user(request)
+        if user is None:
+            return Response(
+                {"message": "Utilisateur non authentifie."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if user.role != User.Role.CANDIDATE:
+            return Response(
+                {"message": "Action reservee aux candidats."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        cv = CV.objects.filter(user=user, is_active=True).order_by("-uploaded_at").first()
+        if cv is None or not cv.raw_text.strip():
+            return Response(
+                {"message": "Ajoutez votre CV avant de postuler."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        job = (
+            JobOffer.objects.filter(pk=job_id, status=JobOffer.Status.OPEN)
+            .prefetch_related("job_skills__skill")
+            .first()
+        )
+        if job is None:
+            return Response(
+                {"message": "Offre introuvable ou fermee."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user_skills = {
+            user_skill.skill.name.lower()
+            for user_skill in user.user_skills.select_related("skill")
+        }
+        score_data = calculate_matching_score(user, cv, job, user_skills)
+        application, created = Application.objects.get_or_create(
+            user=user,
+            job=job,
+            defaults={
+                "cv": cv,
+                "status": Application.Status.PENDING,
+                "matching_score": score_data["global_score"],
+                "cosine_score": score_data["cosine"],
+                "jaccard_score": score_data["jaccard"],
+                "exp_match": score_data["exp_match"],
+                "geo_match": score_data["geo_match"],
+            },
+        )
+
+        if not created:
+            application.cv = cv
+            application.matching_score = score_data["global_score"]
+            application.cosine_score = score_data["cosine"]
+            application.jaccard_score = score_data["jaccard"]
+            application.exp_match = score_data["exp_match"]
+            application.geo_match = score_data["geo_match"]
+            application.save(
+                update_fields=[
+                    "cv",
+                    "matching_score",
+                    "cosine_score",
+                    "jaccard_score",
+                    "exp_match",
+                    "geo_match",
+                ]
+            )
+
+        return Response(
+            {
+                "message": "Candidature envoyee." if created else "Candidature deja envoyee.",
+                "application": serialize_application(application),
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
 
 class RecruiterApplicationsView(APIView):
