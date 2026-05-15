@@ -5,7 +5,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.matching.models import Application
+from apps.matching.models import Application, Notification
 from apps.matching.views import calculate_matching_score
 from apps.users.models import CV, User
 from apps.users.views import get_current_user
@@ -335,3 +335,38 @@ class JobCandidatesView(APIView):
         results = sorted(results, key=lambda item: item["matching_score"], reverse=True)
         limit = int(request.query_params.get("limit", 30))
         return Response(results[:limit])
+
+
+class InviteCandidateView(APIView):
+    def post(self, request, job_id, candidate_id):
+        user, error_response = require_recruiter(request)
+        if error_response:
+            return error_response
+
+        job = JobOffer.objects.filter(admin=user, pk=job_id).first()
+        if job is None:
+            return Response({"message": "Offre introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        candidate = User.objects.filter(
+            id=candidate_id,
+            role=User.Role.CANDIDATE,
+        ).first()
+        if candidate is None:
+            return Response({"message": "Candidat introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        recruiter_name = user.get_full_name() or user.email
+        Notification.objects.create(
+            user=candidate,
+            job=job,
+            type=Notification.Type.NEW_OFFER,
+            title="Invitation a postuler",
+            message=(
+                f"{recruiter_name} vous invite a postuler pour l'offre "
+                f"\"{job.title}\" chez {job.entreprise}."
+            ),
+        )
+
+        return Response(
+            {"message": "Invitation envoyee au candidat."},
+            status=status.HTTP_201_CREATED,
+        )

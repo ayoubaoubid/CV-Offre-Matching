@@ -154,6 +154,14 @@ class Notification(models.Model):
                          related_name='notifications',
                          db_column='application_id'
                      )
+    job            = models.ForeignKey(
+                         JobOffer,
+                         on_delete=models.SET_NULL,
+                         null=True,
+                         blank=True,
+                         related_name='notifications',
+                         db_column='job_id'
+                     )
     type           = models.CharField(max_length=50, choices=Type.choices)
     title          = models.CharField(max_length=255)
     message        = models.TextField()
@@ -243,7 +251,7 @@ def auto_notify_on_status_change(sender, instance, created, **kwargs):
             user        = instance.user,
             application = instance,
             type        = Notification.Type.ACCEPTED,
-            title       = "🎉 Candidature acceptée !",
+            title       = "Candidature acceptée !",
             message     = (
                 f"Félicitations {instance.user.first_name} ! "
                 f"Votre candidature pour le poste \"{instance.job.title}\" "

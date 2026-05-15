@@ -69,6 +69,11 @@ export async function getJobCandidates(jobId) {
 }
 
 
+export async function inviteCandidateToApply(jobId, candidateId) {
+  return API.post(`/jobs/recruiter/jobs/${jobId}/candidates/${candidateId}/invite/`);
+}
+
+
 export async function getRecruiterApplications(params = {}) {
   return API.get("/matching/recruiter/applications/", { params });
 }

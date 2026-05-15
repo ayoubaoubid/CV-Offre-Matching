@@ -13,6 +13,7 @@ const API = axios.create({
 const PUBLIC_ROUTES = [
   "/users/login/",
   "/users/register/",
+  "/users/register-recruiter/",
 ];
 
 API.interceptors.request.use(

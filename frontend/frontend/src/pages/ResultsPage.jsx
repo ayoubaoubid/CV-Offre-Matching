@@ -78,6 +78,8 @@ export default function ResultsPage() {
             {errorMessage}
           </div>
         ) : null}
+        
+        {isLoading ? <p className="text-muted mt-3">Ces Chargement prend du temps</p> : null}
 
         {isLoading ? <p className="text-muted mt-3">Chargement des recommandations...</p> : null}
 

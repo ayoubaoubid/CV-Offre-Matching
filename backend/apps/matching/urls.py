@@ -1,6 +1,7 @@
 from django.urls import path
 #importation de la vue
 from .views import (
+    CandidateApplyView,
     CandidateNotificationReadView,
     CandidateNotificationsView,
     MatchRecommendationsView,
@@ -11,6 +12,7 @@ from .views import (
 
 urlpatterns = [
     path("recommendations/", MatchRecommendationsView.as_view(), name="match-recommendations"),
+    path("applications/<int:job_id>/", CandidateApplyView.as_view(), name="candidate-apply"),
     path("notifications/", CandidateNotificationsView.as_view(), name="candidate-notifications"),
     path(
         "notifications/<int:notification_id>/read/",

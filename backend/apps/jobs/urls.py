@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    InviteCandidateView,
     JobCandidatesView,
     JobOfferListCreateView,
     RecruiterDashboardView,
@@ -19,6 +20,11 @@ urlpatterns = [
     path("recruiter/jobs/<int:job_id>/", RecruiterJobDetailView.as_view(), name="recruiter-job-detail"),
     path("recruiter/jobs/<int:job_id>/status/", RecruiterJobStatusView.as_view(), name="recruiter-job-status"),
     path("recruiter/jobs/<int:job_id>/candidates/", JobCandidatesView.as_view(), name="recruiter-job-candidates"),
+    path(
+        "recruiter/jobs/<int:job_id>/candidates/<int:candidate_id>/invite/",
+        InviteCandidateView.as_view(),
+        name="recruiter-invite-candidate",
+    ),
     path("save/<int:job_id>/", SaveJobView.as_view()),
     path("saved/", UserSavedJobsView.as_view()),
 ]
