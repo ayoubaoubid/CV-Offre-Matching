@@ -49,7 +49,7 @@ Run-Step `
     -Command "python anonce-maroc.py"
 
 Run-Step `
-    -Label "Scraping complet" `
+    -Label "Scraping Rekrute" `
     -WorkingDirectory (Join-Path $ProjectRoot "data_engine\scraping") `
     -Command "python scraping_Rekrute.py"
 
