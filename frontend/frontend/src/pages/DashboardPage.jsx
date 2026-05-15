@@ -7,7 +7,7 @@ import { getJobs } from "../services/jobService";
 
 
 const REFRESH_INTERVAL_MS = 5000;
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 30;
 
 
 export default function DashboardPage() {
@@ -16,7 +16,10 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [contractFilter, setContractFilter] = useState("");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [pageState, setPageState] = useState({
+    filterKey: "",
+    page: 1,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -119,11 +122,19 @@ export default function DashboardPage() {
       });
   }, [contractFilter, deferredSearch, jobs, locationFilter]);
 
-  const visibleJobs = filteredJobs.slice(0, visibleCount);
+  const filterKey = `${search}|${locationFilter}|${contractFilter}`;
+  const currentPage = pageState.filterKey === filterKey ? pageState.page : 1;
+  const totalPages = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const visibleJobs = filteredJobs.slice(pageStart, pageStart + PAGE_SIZE);
 
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [search, locationFilter, contractFilter]);
+  const goToPage = (page) => {
+    setPageState({
+      filterKey,
+      page: Math.min(Math.max(page, 1), totalPages),
+    });
+  };
 
   if (!authReady || !user) {
     return <div className="page-frame py-5"><p>Chargement...</p></div>;
@@ -212,10 +223,24 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {!loading && !error && visibleJobs.length < filteredJobs.length ? (
-          <div className="text-center mt-3">
-            <button className="btn btn-outline-primary" onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}>
-              Afficher plus d'offres
+        {!loading && !error && filteredJobs.length > PAGE_SIZE ? (
+          <div className="d-flex justify-content-center align-items-center gap-2 flex-wrap mt-3">
+            <button
+              className="btn btn-outline-primary"
+              disabled={safePage === 1}
+              onClick={() => goToPage(safePage - 1)}
+            >
+              Precedent
+            </button>
+            <span className="text-muted">
+              Page {safePage} sur {totalPages}
+            </span>
+            <button
+              className="btn btn-outline-primary"
+              disabled={safePage === totalPages}
+              onClick={() => goToPage(safePage + 1)}
+            >
+              Suivant
             </button>
           </div>
         ) : null}
