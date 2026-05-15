@@ -5,8 +5,14 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import CV, Profile, Skill, User, UserSkill
-from .serializers import LoginSerializer, ProfileUpdateSerializer, RegisterSerializer
+from .models import CV, CompanyProfile, Profile, Skill, User, UserSkill
+from .serializers import (
+    CompanyProfileSerializer,
+    LoginSerializer,
+    ProfileUpdateSerializer,
+    RecruiterRegisterSerializer,
+    RegisterSerializer,
+)
 
 
 def parse_skills_payload(raw_skills):
@@ -93,6 +99,7 @@ def build_auth_payload(user):
 
 def serialize_user(user):
     profile = getattr(user, "profile", None)
+    company_profile = getattr(user, "company_profile", None)
     active_cv = user.cvs.filter(is_active=True).order_by("-uploaded_at").first()
     skills = [
         {
@@ -119,6 +126,11 @@ def serialize_user(user):
             "linkedin_url": profile.linkedin_url if profile else "",
             "avatar_url": profile.avatar_url if profile else "",
         },
+        "company_profile": (
+            CompanyProfileSerializer(company_profile).data
+            if company_profile
+            else None
+        ),
         "skills": skills,
         "cv": (
             {
@@ -191,6 +203,43 @@ class RegisterView(APIView):
         return Response(
             {
                 "message": "Compte cree avec succes.",
+                "user": serialize_user(user),
+                "tokens": build_auth_payload(user),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RecruiterRegisterView(APIView):
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        serializer = RecruiterRegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        user = User.objects.create_user(
+            email=data["email"],
+            password=data["password"],
+            first_name=data["first_name"],
+            last_name=data["last_name"],
+            role=User.Role.ADMIN,
+        )
+
+        CompanyProfile.objects.create(
+            user=user,
+            company_name=data["company_name"],
+            sector=data.get("sector", ""),
+            description=data.get("description", ""),
+            website=data.get("website", ""),
+            location=data.get("location", ""),
+            logo_url=data.get("logo_url", ""),
+            professional_email=data.get("professional_email", ""),
+            phone=data.get("phone", ""),
+        )
+
+        return Response(
+            {
+                "message": "Compte recruteur cree avec succes.",
                 "user": serialize_user(user),
                 "tokens": build_auth_payload(user),
             },
@@ -297,6 +346,57 @@ class MeView(APIView):
         return Response(
             {
                 "message": "Profil mis a jour avec succes.",
+                "user": serialize_user(user),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class CompanyProfileView(APIView):
+    def get(self, request, *args, **kwargs):
+        user = get_current_user(request)
+        if user is None:
+            return Response(
+                {"message": "Utilisateur non authentifie."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if user.role != User.Role.ADMIN:
+            return Response(
+                {"message": "Acces reserve aux recruteurs."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        company_profile, _ = CompanyProfile.objects.get_or_create(user=user)
+        return Response(
+            {"company_profile": CompanyProfileSerializer(company_profile).data},
+            status=status.HTTP_200_OK,
+        )
+
+    def put(self, request, *args, **kwargs):
+        user = get_current_user(request)
+        if user is None:
+            return Response(
+                {"message": "Utilisateur non authentifie."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if user.role != User.Role.ADMIN:
+            return Response(
+                {"message": "Acces reserve aux recruteurs."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        company_profile, _ = CompanyProfile.objects.get_or_create(user=user)
+        serializer = CompanyProfileSerializer(
+            company_profile,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {
+                "message": "Profil entreprise mis a jour.",
+                "company_profile": serializer.data,
                 "user": serialize_user(user),
             },
             status=status.HTTP_200_OK,

@@ -25,6 +25,8 @@ class Application(models.Model):
  
     class Status(models.TextChoices):
         PENDING   = 'pending',   'En attente'
+        REVIEWED  = 'reviewed',  'Vue'
+        INTERVIEW = 'interview', 'Entretien'
         ACCEPTED  = 'accepted',  'Acceptée'
         REJECTED  = 'rejected',  'Refusée'
         WITHDRAWN = 'withdrawn', 'Retirée'
@@ -53,6 +55,7 @@ class Application(models.Model):
                         default=Status.PENDING
                     )
     cover_letter  = models.TextField(blank=True)
+    internal_note = models.TextField(blank=True)
  
     # ── Scores de matching ──────────────────
     matching_score = models.FloatField(null=True, blank=True)

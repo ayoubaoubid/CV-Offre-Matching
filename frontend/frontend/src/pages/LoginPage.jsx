@@ -41,7 +41,7 @@ export default function LoginPage() {
         user: response.data.user,
         tokens: response.data.tokens,
       });
-      navigate("/upload");
+      navigate(response.data.user.role === "admin" ? "/recruiter" : "/upload");
     } catch (requestError) {
       setError(buildLoginErrorMessage(requestError));
     } finally {
@@ -132,6 +132,14 @@ export default function LoginPage() {
             onClick={() => navigate("/register")}
           >
             Creer un nouveau compte
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-link mt-1 px-0 d-block"
+            onClick={() => navigate("/register-recruiter")}
+          >
+            Creer un compte recruteur
           </button>
         </form>
       </section>

@@ -258,8 +258,12 @@ def import_offres(csv_path, delimiter=","):
                 skipped += 1
                 continue
 
-            if JobOffer.objects.filter(title__iexact=titre, entreprise__iexact=entreprise).exists():
-                skip(f"Doublon ignore : {titre} - {entreprise}")
+            if JobOffer.objects.filter(
+                title__iexact=titre,
+                entreprise__iexact=entreprise,
+                localisation__iexact=localisation,
+            ).exists():
+                skip(f"Doublon ignore : {titre} - {entreprise} ({localisation})")
                 skipped += 1
                 continue
 
