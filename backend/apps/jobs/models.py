@@ -74,6 +74,7 @@ class JobOffer(models.Model):
                                     default=''
                                 )
     experience_required  = models.PositiveIntegerField(default=0)
+    salary               = models.CharField(max_length=120, blank=True, default="")
     tfidf_vector         = models.JSONField(null=True, blank=True)
     status               = models.CharField(
                                max_length=20,
@@ -101,6 +102,10 @@ class JobOffer(models.Model):
     def __str__(self):
         return f"{self.title} — {self.entreprise} ({self.status})"
  
+    @property
+    def company(self):
+        return self.entreprise
+
     def publish(self):
         """Publie l'offre et enregistre la date de publication."""
         self.status = self.Status.OPEN

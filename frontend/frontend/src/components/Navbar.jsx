@@ -22,23 +22,43 @@ export default function Navbar() {
   }, []);
 
   const initials = `${user?.first_name?.[0] ?? ""}${user?.last_name?.[0] ?? ""}`.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
+  const isRecruiter = user?.role === "admin";
 
   return (
     <nav className="app-navbar">
       <div className="page-frame page-frame--nav d-flex justify-content-between align-items-center">
         <div className="d-flex align-items-center gap-2 flex-wrap">
-          <button className="btn btn-light btn-sm fw-bold shadow-sm" onClick={() => navigate(user ? "/dashboard" : "/")}>
+          <button className="btn btn-light btn-sm fw-bold shadow-sm" onClick={() => navigate(user ? (isRecruiter ? "/recruiter" : "/dashboard") : "/")}>
             CV Matching
           </button>
 
           {user ? (
             <>
-              <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/results")}>
-                Matching
-              </button>
-              <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/upload")}>
-                CV et Skills
-              </button>
+              {isRecruiter ? (
+                <>
+                  <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/recruiter")}>
+                    Recruteur
+                  </button>
+                  <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/recruiter/jobs")}>
+                    Mes offres
+                  </button>
+                  <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/recruiter/applications")}>
+                    Candidatures
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/results")}>
+                    Matching
+                  </button>
+                  <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/upload")}>
+                    CV et Skills
+                  </button>
+                  <button className="btn btn-outline-light btn-sm" onClick={() => navigate("/notifications")}>
+                    Notifications
+                  </button>
+                </>
+              )}
             </>
           ) : null}
         </div>
@@ -61,10 +81,10 @@ export default function Navbar() {
                   </div>
 
                   <div style={menuItemStyle} onClick={() => {
-                    navigate("/profile");
+                    navigate(isRecruiter ? "/recruiter/company" : "/profile");
                     setOpen(false);
                   }}>
-                    Profile
+                    {isRecruiter ? "Profil entreprise" : "Profile"}
                   </div>
 
                   <div style={menuItemStyle} onClick={() => {

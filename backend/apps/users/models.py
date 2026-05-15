@@ -106,6 +106,40 @@ class Profile(models.Model):
  
     def __str__(self):
         return f"Profil de {self.user.get_full_name()}"
+
+
+class CompanyProfile(models.Model):
+    """
+    Profil entreprise rattache a un recruteur.
+    Separe du profil candidat pour garder des donnees metier propres.
+    """
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="company_profile",
+        db_column="user_id",
+        limit_choices_to={"role": User.Role.ADMIN},
+    )
+    company_name = models.CharField(max_length=255, blank=True)
+    sector = models.CharField(max_length=150, blank=True)
+    description = models.TextField(blank=True)
+    website = models.URLField(max_length=300, blank=True)
+    location = models.CharField(max_length=150, blank=True)
+    logo_url = models.URLField(max_length=500, blank=True)
+    professional_email = models.EmailField(max_length=255, blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "users"
+        db_table = "company_profiles"
+        verbose_name = "Profil entreprise"
+        verbose_name_plural = "Profils entreprises"
+
+    def __str__(self):
+        return self.company_name or f"Entreprise de {self.user.get_full_name()}"
  
  
 # ─────────────────────────────────────────────
