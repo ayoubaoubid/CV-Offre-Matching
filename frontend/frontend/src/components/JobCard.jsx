@@ -1,7 +1,17 @@
 import { useState } from "react";
+import { saveJob } from "../services/savedService";
 
 export default function JobCard({ job }) {
   const [saved, setSaved] = useState(false);
+
+  const handleSave = async () => {
+  try {
+    await saveJob(job.id);
+    setSaved(true);
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   return (
     <div className="surface-card job-card h-100">
@@ -28,7 +38,7 @@ export default function JobCard({ job }) {
 
       <button
         className={`btn mt-2 ${saved ? "btn-danger" : "btn-outline-primary"}`}
-        onClick={() => setSaved(!saved)}
+        onClick={handleSave}
       >
         {saved ? "Saved" : "Save"}
       </button>

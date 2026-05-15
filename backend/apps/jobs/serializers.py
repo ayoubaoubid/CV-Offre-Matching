@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import JobOffer
+from .models import JobOffer, SavedJob
 
 
 class JobOfferSerializer(serializers.ModelSerializer):
@@ -55,4 +55,21 @@ class JobOfferCreateSerializer(serializers.ModelSerializer):
             "status",
             "published_at",
             "expires_at",
+        ]
+
+class SavedJobSerializer(serializers.ModelSerializer):
+    job_id = serializers.IntegerField(source="job.id_jobOffer")
+    title = serializers.CharField(source="job.title")
+    company = serializers.CharField(source="job.entreprise")
+    location = serializers.CharField(source="job.localisation")
+
+    class Meta:
+        model = SavedJob
+        fields = [
+            "id",
+            "job_id",
+            "title",
+            "company",
+            "location",
+            "saved_at",
         ]
