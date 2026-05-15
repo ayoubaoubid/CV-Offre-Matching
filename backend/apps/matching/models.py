@@ -243,7 +243,7 @@ def auto_notify_on_status_change(sender, instance, created, **kwargs):
             user        = instance.user,
             application = instance,
             type        = Notification.Type.ACCEPTED,
-            title       = "🎉 Candidature acceptée !",
+            title       = "Candidature acceptée !",
             message     = (
                 f"Félicitations {instance.user.first_name} ! "
                 f"Votre candidature pour le poste \"{instance.job.title}\" "
